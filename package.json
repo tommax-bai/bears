@@ -1,0 +1,10 @@
+{
+  "name": "mobile-message-board-admin",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "preview": "node server.js",
+    "preview:open": "node open-preview.js",
+    "test": "node tests/message-board.test.js"
+  }
+}

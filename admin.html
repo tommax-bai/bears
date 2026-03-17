@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>留言后台</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body class="admin-body">
+    <main class="shell admin-shell">
+      <section class="hero-card admin-hero">
+        <div>
+          <p class="eyebrow">Moderation Console</p>
+          <h1>留言审核后台</h1>
+          <p class="hero-copy">
+            管理已发布、已隐藏和已焚毁留言，支持搜索、批量处理和审计追踪。
+          </p>
+        </div>
+        <div class="hero-actions">
+          <a class="ghost-link" href="./index.html">查看前台</a>
+          <button id="refreshAdmin" class="primary-button">刷新数据</button>
+        </div>
+      </section>
+
+      <section id="adminSummary" class="summary-grid"></section>
+
+      <section class="admin-layout">
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">Filters</p>
+              <h2>审核队列</h2>
+            </div>
+            <button id="toggleFilters" class="text-button">筛选</button>
+          </div>
+
+          <div id="filterPanel" class="filter-panel">
+            <label>
+              状态
+              <select id="statusFilter">
+                <option value="all">全部</option>
+                <option value="approved">已发布</option>
+                <option value="rejected">已拒绝</option>
+                <option value="hidden">已隐藏</option>
+                <option value="burned">已焚毁</option>
+              </select>
+            </label>
+            <label class="grow">
+              搜索
+              <input id="searchInput" type="search" placeholder="搜索昵称、内容或 ID" />
+            </label>
+            <label>
+              操作备注
+              <input id="actionNote" type="text" maxlength="80" placeholder="可选备注，例如：含广告词" />
+            </label>
+          </div>
+
+          <div class="batch-bar">
+            <span id="selectionCount">已选 0 条</span>
+            <div class="batch-actions">
+              <button data-batch-action="approve" class="chip-button">批量通过</button>
+              <button data-batch-action="reject" class="chip-button">批量拒绝</button>
+              <button data-batch-action="hide" class="chip-button">批量屏蔽</button>
+              <button data-batch-action="restore" class="chip-button">批量恢复</button>
+            </div>
+          </div>
+
+          <div id="adminFeedback" class="feedback neutral">发布后默认公开，后台主要处理隐藏、恢复和焚毁后的记录查看。</div>
+
+          <div class="list-head">
+            <label class="checkbox-label">
+              <input id="selectVisible" type="checkbox" />
+              选中当前结果
+            </label>
+            <span id="visibleCount"></span>
+          </div>
+          <div id="adminList" class="admin-list"></div>
+        </div>
+
+        <aside class="panel detail-panel">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">Detail</p>
+              <h2>消息详情</h2>
+            </div>
+          </div>
+
+          <div id="detailCard" class="detail-empty">
+            选择一条留言后，可查看完整内容、当前状态和审计记录。
+          </div>
+        </aside>
+      </section>
+    </main>
+
+    <script src="./app/message-board.js"></script>
+    <script src="./app/admin.js"></script>
+  </body>
+</html>

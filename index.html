@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bear's Home</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body class="public-body">
+    <div id="entryGate" class="entry-gate" aria-hidden="false">
+      <div class="entry-shell">
+        <div class="entry-copy">
+          <p class="eyebrow">Tap To Enter</p>
+          <h1>选择任意编号进入</h1>
+        </div>
+        <div id="entryGrid" class="entry-grid"></div>
+        <button id="entryLogo" class="entry-logo" type="button" aria-label="进入 Bear's Home">
+          <span class="entry-logo-mark">PB</span>
+          <span class="entry-logo-text">Bear's Home</span>
+        </button>
+      </div>
+    </div>
+
+    <main class="shell public-shell">
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">Live Feed</p>
+            <h2>Bear's Home</h2>
+          </div>
+        </div>
+        <div id="pullHint" class="pull-hint">下拉刷新</div>
+        <div id="publicList" class="message-stream"></div>
+      </section>
+
+      <section class="summary-grid compact-summary" id="publicSummary"></section>
+    </main>
+
+    <button id="floatingCompose" class="floating-compose" aria-label="写留言">+</button>
+
+    <div id="composerSheet" class="sheet hidden" aria-hidden="true">
+      <div id="sheetBackdrop" class="sheet-backdrop"></div>
+      <div class="sheet-panel">
+        <div class="sheet-head">
+          <div>
+            <p class="eyebrow">New Message</p>
+            <h2>发布新留言</h2>
+          </div>
+          <button id="closeComposer" class="icon-button" aria-label="关闭">×</button>
+        </div>
+
+        <form id="messageForm" class="composer-form">
+          <label>
+            昵称
+            <input id="displayName" name="displayName" type="text" maxlength="24" placeholder="例如：周末访客" />
+          </label>
+          <label>
+            留言内容
+            <textarea
+              id="messageContent"
+              name="content"
+              rows="5"
+              maxlength="280"
+              placeholder="输入任意长度的留言内容，敏感词和刷屏内容会被拦截。"
+            ></textarea>
+          </label>
+
+          <label>
+            本地相册
+            <input id="imageUpload" name="images" type="file" accept="image/*" multiple />
+          </label>
+          <div class="upload-note">最多上传 4 张图片。</div>
+          <div id="imagePreview" class="image-preview"></div>
+
+          <div class="emoji-picker" aria-label="可选表情">
+            <span class="emoji-label">可选表情</span>
+            <div id="emojiPicker" class="emoji-list">
+              <button type="button" class="emoji-option" data-emoji="😀">😀</button>
+              <button type="button" class="emoji-option" data-emoji="😂">😂</button>
+              <button type="button" class="emoji-option" data-emoji="🥳">🥳</button>
+              <button type="button" class="emoji-option" data-emoji="😍">😍</button>
+              <button type="button" class="emoji-option" data-emoji="👍">👍</button>
+              <button type="button" class="emoji-option" data-emoji="❤️">❤️</button>
+              <button type="button" class="emoji-option" data-emoji="🔥">🔥</button>
+              <button type="button" class="emoji-option" data-emoji="🎉">🎉</button>
+            </div>
+          </div>
+
+          <label>
+            可见模式
+            <input id="burnAfter" name="burnAfter" type="hidden" value="never" />
+            <div id="burnAfterSwitch" class="mode-switch" role="tablist" aria-label="可见模式">
+              <button type="button" class="mode-option is-active" data-value="never" aria-pressed="true">长期可见</button>
+              <button type="button" class="mode-option" data-value="after_read" aria-pressed="false">焚烧</button>
+            </div>
+          </label>
+
+          <div class="rule-strip">
+            <span>内容不能为空</span>
+            <span>最多 280 字</span>
+          </div>
+
+          <div id="submitFeedback" class="feedback neutral">普通留言会立即公开，焚烧留言会在首次查看后自动消失。</div>
+
+          <div class="form-actions">
+            <button type="submit" class="primary-button">提交留言</button>
+            <button type="button" id="resetComposer" class="secondary-button">重置</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <script src="./app/message-board.js"></script>
+    <script src="./app/public.js"></script>
+  </body>
+</html>
