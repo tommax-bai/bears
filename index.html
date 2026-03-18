@@ -11,11 +11,21 @@
       <div class="entry-shell">
         <div class="entry-copy">
           <p class="eyebrow">Tap To Enter</p>
-          <h1>选择任意编号进入</h1>
+          <h1>Magic Key</h1>
         </div>
         <div id="entryGrid" class="entry-grid"></div>
         <button id="entryLogo" class="entry-logo" type="button" aria-label="进入 Bear's Home">
-          <span class="entry-logo-mark">PB</span>
+          <span class="entry-logo-mark" aria-hidden="true">
+            <span class="bear-mark">
+              <span class="bear-ear bear-ear-left"></span>
+              <span class="bear-ear bear-ear-right"></span>
+              <span class="bear-face">
+                <span class="bear-eye bear-eye-left"></span>
+                <span class="bear-eye bear-eye-right"></span>
+                <span class="bear-snout"></span>
+              </span>
+            </span>
+          </span>
           <span class="entry-logo-text">Bear's Home</span>
         </button>
       </div>
@@ -36,43 +46,74 @@
       <section class="summary-grid compact-summary" id="publicSummary"></section>
     </main>
 
-    <button id="floatingCompose" class="floating-compose" aria-label="写留言">+</button>
+    <div id="publishDock" class="publish-dock" aria-label="发布入口">
+      <div id="publishMenu" class="publish-menu hidden" aria-hidden="true">
+        <button id="launchImagePost" class="publish-action primary-publish" aria-label="发图片">发图片</button>
+        <button id="launchTextPost" class="publish-action secondary-publish" aria-label="发文字">发文字</button>
+      </div>
+      <button
+        id="publishToggle"
+        class="publish-toggle"
+        type="button"
+        aria-label="打开发布菜单"
+        aria-expanded="false"
+        aria-controls="publishMenu"
+      >
+        +
+      </button>
+    </div>
 
     <div id="composerSheet" class="sheet hidden" aria-hidden="true">
       <div id="sheetBackdrop" class="sheet-backdrop"></div>
       <div class="sheet-panel">
         <div class="sheet-head">
           <div>
-            <p class="eyebrow">New Message</p>
-            <h2>发布新留言</h2>
+            <p class="eyebrow">Publisher</p>
+            <h2 id="composerTitle">发布新内容</h2>
           </div>
           <button id="closeComposer" class="icon-button" aria-label="关闭">×</button>
         </div>
 
         <form id="messageForm" class="composer-form">
+          <input id="postType" name="postType" type="hidden" value="text" />
+
+          <div id="postTypeSwitch" class="post-type-switch" role="tablist" aria-label="发布类型">
+            <button type="button" class="post-type-option is-active" data-post-type="image" aria-pressed="true">图片帖</button>
+            <button type="button" class="post-type-option" data-post-type="text" aria-pressed="false">文字帖</button>
+          </div>
+
+          <div id="postModeIntro" class="composer-intro">
+            <strong>图片帖</strong>
+            <span>适合一口气发 1 到 9 张图，可附一句简短说明。</span>
+          </div>
+
           <label>
             昵称
             <input id="displayName" name="displayName" type="text" maxlength="24" placeholder="例如：周末访客" />
           </label>
-          <label>
-            留言内容
+
+          <label id="contentField">
+            <span id="contentLabel">图片说明</span>
             <textarea
               id="messageContent"
               name="content"
               rows="5"
               maxlength="280"
-              placeholder="输入任意长度的留言内容，敏感词和刷屏内容会被拦截。"
+              placeholder="给这组图片补一句说明也可以留空。"
             ></textarea>
           </label>
 
-          <label>
-            本地相册
+          <div id="imageField" class="media-field">
+            <div class="media-field-head">
+              <span>本地相册</span>
+              <button id="chooseImages" type="button" class="text-button">重新选择</button>
+            </div>
             <input id="imageUpload" name="images" type="file" accept="image/*" multiple />
-          </label>
-          <div class="upload-note">最多上传 4 张图片。</div>
-          <div id="imagePreview" class="image-preview"></div>
+            <div id="uploadNote" class="upload-note">最多上传 9 张图片。</div>
+            <div id="imagePreview" class="image-preview"></div>
+          </div>
 
-          <div class="emoji-picker" aria-label="可选表情">
+          <div id="emojiSection" class="emoji-picker" aria-label="可选表情">
             <span class="emoji-label">可选表情</span>
             <div id="emojiPicker" class="emoji-list">
               <button type="button" class="emoji-option" data-emoji="😀">😀</button>
@@ -96,14 +137,15 @@
           </label>
 
           <div class="rule-strip">
-            <span>内容不能为空</span>
+            <span id="rulePrimary">文字帖必须填写内容</span>
             <span>最多 280 字</span>
+            <span id="ruleImages">图片帖最多 9 张</span>
           </div>
 
-          <div id="submitFeedback" class="feedback neutral">普通留言会立即公开，焚烧留言会在首次查看后自动消失。</div>
+          <div id="submitFeedback" class="feedback neutral">请选择发布方式。图片帖适合发相册，文字帖只发布纯文字内容。</div>
 
           <div class="form-actions">
-            <button type="submit" class="primary-button">提交留言</button>
+            <button id="submitButton" type="submit" class="primary-button">发布图片</button>
             <button type="button" id="resetComposer" class="secondary-button">重置</button>
           </div>
         </form>

@@ -80,3 +80,16 @@ To start the server and open the browser automatically:
 ```bash
 npm run preview:open
 ```
+
+## Deployment (GitHub Pages)
+
+This repository includes a GitHub Actions workflow that deploys the static site to GitHub Pages on every push to `main`.
+
+1. Open repository **Settings → Pages**.
+2. Set **Build and deployment** source to **GitHub Actions**.
+3. Push to `main` (or manually trigger **Deploy Bear's Home to GitHub Pages** workflow).
+
+After deployment:
+
+- Public board: `https://<your-username>.github.io/<repo>/`
+- Admin page: `https://<your-username>.github.io/<repo>/admin.html`

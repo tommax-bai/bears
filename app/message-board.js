@@ -2,7 +2,7 @@
   var STORAGE_KEY = "codex.mobile.message.board.state";
   var MAX_NAME_LENGTH = 24;
   var MAX_CONTENT_LENGTH = 280;
-  var MAX_IMAGE_COUNT = 4;
+  var MAX_IMAGE_COUNT = 9;
   var RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
   var RATE_LIMIT_MAX = 3;
   var BURN_COUNTDOWN_MS = 60 * 1000;
@@ -17,6 +17,67 @@
     hidden: "已隐藏",
     burned: "已焚毁"
   };
+  var SEED_IMAGE_SET = [
+    {
+      name: "sunrise-window.svg",
+      type: "image/svg+xml",
+      dataUrl:
+        "data:image/svg+xml;utf8," +
+        encodeURIComponent(
+          '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 480">' +
+            '<defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">' +
+            '<stop offset="0%" stop-color="#f7d8b3"/><stop offset="100%" stop-color="#d8efe7"/>' +
+            '</linearGradient></defs>' +
+            '<rect width="480" height="480" rx="48" fill="url(#bg)"/>' +
+            '<circle cx="336" cy="132" r="54" fill="#f4b56a"/>' +
+            '<rect x="74" y="286" width="332" height="88" rx="22" fill="#f8f3ea"/>' +
+            '<rect x="110" y="188" width="118" height="138" rx="18" fill="#fff8ef"/>' +
+            '<rect x="250" y="156" width="120" height="170" rx="18" fill="#fff8ef"/>' +
+            '<path d="M0 320 C98 282 168 314 252 278 C326 246 394 264 480 232 V480 H0 Z" fill="#7bb7a6"/>' +
+            '<path d="M0 352 C88 334 154 346 236 326 C326 304 390 324 480 302 V480 H0 Z" fill="#4f8b7d"/>' +
+          "</svg>"
+        )
+    },
+    {
+      name: "tea-table.svg",
+      type: "image/svg+xml",
+      dataUrl:
+        "data:image/svg+xml;utf8," +
+        encodeURIComponent(
+          '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 480">' +
+            '<rect width="480" height="480" rx="48" fill="#efe6db"/>' +
+            '<rect x="62" y="82" width="356" height="316" rx="34" fill="#f9f4ed"/>' +
+            '<ellipse cx="240" cy="290" rx="132" ry="54" fill="#d9b68a"/>' +
+            '<circle cx="182" cy="230" r="46" fill="#ffffff"/>' +
+            '<circle cx="182" cy="230" r="22" fill="#b67a4b"/>' +
+            '<rect x="230" y="190" width="110" height="86" rx="20" fill="#9ebfa8"/>' +
+            '<rect x="252" y="210" width="68" height="44" rx="14" fill="#f4efe6"/>' +
+            '<circle cx="332" cy="176" r="18" fill="#f3c476"/>' +
+            '<circle cx="356" cy="208" r="14" fill="#e8a96b"/>' +
+          "</svg>"
+        )
+    },
+    {
+      name: "night-corner.svg",
+      type: "image/svg+xml",
+      dataUrl:
+        "data:image/svg+xml;utf8," +
+        encodeURIComponent(
+          '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 480">' +
+            '<defs><linearGradient id="night" x1="0" y1="0" x2="1" y2="1">' +
+            '<stop offset="0%" stop-color="#2d4c56"/><stop offset="100%" stop-color="#16252f"/>' +
+            '</linearGradient></defs>' +
+            '<rect width="480" height="480" rx="48" fill="url(#night)"/>' +
+            '<circle cx="346" cy="116" r="40" fill="#f5e9bf"/>' +
+            '<rect x="92" y="110" width="296" height="240" rx="28" fill="#27424d"/>' +
+            '<rect x="120" y="138" width="100" height="184" rx="18" fill="#395d68"/>' +
+            '<rect x="244" y="138" width="116" height="92" rx="18" fill="#5c8e82"/>' +
+            '<rect x="244" y="246" width="116" height="76" rx="18" fill="#d7a877"/>' +
+            '<circle cx="166" cy="200" r="22" fill="#f0c27c"/>' +
+          "</svg>"
+        )
+    }
+  ];
 
   function createMemoryStorage(seed) {
     var data = Object.assign({}, seed || {});
@@ -81,6 +142,7 @@
         id: "msg-seed-1",
         displayName: "早班访客",
         content: "手机上也很好看，发布入口很好找。",
+        postType: "text",
         status: "approved",
         createdAt: now - 1000 * 60 * 80,
         publishedAt: now - 1000 * 60 * 72,
@@ -104,6 +166,7 @@
         id: "msg-seed-2",
         displayName: "夜间巡检",
         content: "发布即公开会更顺畅，后台主要负责隐藏异常内容。",
+        postType: "text",
         status: "approved",
         createdAt: now - 1000 * 60 * 24,
         publishedAt: now - 1000 * 60 * 24,
@@ -124,9 +187,58 @@
         ]
       },
       {
+        id: "msg-seed-4",
+        displayName: "窗边来信",
+        content: "今早的光线很好，顺手传两张。",
+        postType: "image",
+        status: "approved",
+        createdAt: now - 1000 * 60 * 16,
+        publishedAt: now - 1000 * 60 * 12,
+        images: [SEED_IMAGE_SET[0], SEED_IMAGE_SET[1]],
+        burnAfterRead: false,
+        burnViewedAt: null,
+        burnAt: null,
+        burnedAt: null,
+        sourceId: "seed",
+        auditTrail: [
+          buildAuditEvent({
+            action: "submitted",
+            operator: "system",
+            note: "seeded image post",
+            timestamp: now - 1000 * 60 * 16,
+            toStatus: "approved"
+          })
+        ]
+      },
+      {
+        id: "msg-seed-5",
+        displayName: "晚安相册",
+        content: "",
+        postType: "image",
+        status: "approved",
+        createdAt: now - 1000 * 60 * 8,
+        publishedAt: now - 1000 * 60 * 6,
+        images: [SEED_IMAGE_SET[2]],
+        burnAfterRead: false,
+        burnViewedAt: null,
+        burnAt: null,
+        burnedAt: null,
+        sourceId: "seed",
+        auditTrail: [
+          buildAuditEvent({
+            action: "submitted",
+            operator: "system",
+            note: "seeded image post",
+            timestamp: now - 1000 * 60 * 8,
+            toStatus: "approved"
+          })
+        ]
+      },
+      {
         id: "msg-seed-3",
         displayName: "闪现留言",
         content: "这是一条焚烧示例，点开查看后会自动消失。",
+        postType: "text",
         status: "approved",
         createdAt: now - 1000 * 60 * 180,
         publishedAt: now - 1000 * 60 * 170,
@@ -209,11 +321,17 @@
       if (!Array.isArray(message.images)) {
         message.images = [];
       }
+      if (!message.postType) {
+        message.postType = message.images.length ? "image" : "text";
+      }
       if (typeof message.burnViewedAt === "undefined") {
         message.burnViewedAt = null;
       }
       if (typeof message.burnAt === "undefined") {
         message.burnAt = null;
+      }
+      if (message.burnAfterRead && message.burnViewedAt && !message.burnAt) {
+        message.burnAt = message.burnViewedAt + BURN_COUNTDOWN_MS;
       }
       if (typeof message.burnedAt === "undefined") {
         message.burnedAt = null;
@@ -236,6 +354,29 @@
   function createMessageService(options) {
     var storage = options && options.storage ? options.storage : createBrowserStorage();
     var nowProvider = options && options.now ? options.now : Date.now;
+
+    function startBurnCountdown(message, payload) {
+      var timestamp = payload && payload.timestamp ? payload.timestamp : nowProvider();
+
+      if (!message.burnViewedAt) {
+        message.burnViewedAt = timestamp;
+      }
+      if (!message.burnAt) {
+        message.burnAt = message.burnViewedAt + getRules().burnCountdownMs;
+      }
+      if (!message.auditTrail.some(function (entry) { return entry.action === "view"; })) {
+        message.auditTrail.push(
+          buildAuditEvent({
+            action: "view",
+            operator: payload && payload.operator ? payload.operator : "viewer",
+            note: normalizeText(payload && payload.note) || "Burn countdown started",
+            timestamp: message.burnViewedAt,
+            fromStatus: "approved",
+            toStatus: "approved"
+          })
+        );
+      }
+    }
 
     function expireBurnedMessages(state) {
       var changed = false;
@@ -328,8 +469,27 @@
       return sortByPublished(messages);
     }
 
-    function listReadableMessages() {
+    function listReadableMessages(options) {
+      var settings = options || {};
       var state = readState();
+      var changed = false;
+
+      if (settings.autoStartBurn) {
+        state.messages.forEach(function (message) {
+          if (message.status !== "approved" || !message.burnAfterRead || (message.burnViewedAt && message.burnAt)) {
+            return;
+          }
+          startBurnCountdown(message, {
+            operator: settings.operator || "viewer",
+            note: settings.note || "Burn countdown started on public render"
+          });
+          changed = true;
+        });
+        if (changed) {
+          writeState(state);
+        }
+      }
+
       return sortByPublished(
         state.messages.filter(function (message) {
           return message.status === "approved";
@@ -385,6 +545,7 @@
     function validateSubmission(payload, existingMessages, timestamp) {
       var name = normalizeText(payload.displayName);
       var content = normalizeText(payload.content);
+      var postType = normalizeText(payload.postType || "").toLowerCase() || (Array.isArray(payload.images) && payload.images.length ? "image" : "text");
       var sourceId = normalizeText(payload.sourceId || "browser");
       var rules = getRules();
       var burnAfterRead = normalizeText(payload.burnAfter || "never") === "after_read";
@@ -396,12 +557,17 @@
       if (name.length > rules.maxNameLength) {
         return { ok: false, type: "validation", message: "昵称超过长度限制。" };
       }
-      if (!content && !images.length) {
-        return {
-          ok: false,
-          type: "validation",
-          message: "留言内容或图片至少填写一项。"
-        };
+      if (postType !== "text" && postType !== "image") {
+        return { ok: false, type: "validation", message: "发布类型无效，请重新选择。" };
+      }
+      if (postType === "text" && !content) {
+        return { ok: false, type: "validation", message: "文字发布需要填写内容。" };
+      }
+      if (postType === "text" && images.length) {
+        return { ok: false, type: "validation", message: "文字发布不能携带图片。" };
+      }
+      if (postType === "image" && !images.length) {
+        return { ok: false, type: "validation", message: "图片发布至少选择 1 张图片。" };
       }
       if (content.length > rules.maxContentLength) {
         return {
@@ -433,6 +599,7 @@
         data: {
           displayName: name,
           content: content,
+          postType: postType,
           images: images,
           sourceId: sourceId,
           burnAfterRead: burnAfterRead
@@ -453,6 +620,7 @@
         id: createId("msg"),
         displayName: validation.data.displayName,
         content: validation.data.content,
+        postType: validation.data.postType,
         status: "approved",
         createdAt: timestamp,
         publishedAt: timestamp,
@@ -466,7 +634,9 @@
           buildAuditEvent({
             action: "submitted",
             operator: "visitor",
-            note: validation.data.burnAfterRead ? "Submitted as burn-after-read" : "Submitted from public board",
+            note:
+              (validation.data.postType === "image" ? "Submitted image post" : "Submitted text post") +
+              (validation.data.burnAfterRead ? " with burn-after-read" : ""),
             timestamp: timestamp,
             toStatus: "approved"
           })
@@ -478,7 +648,11 @@
       return {
         ok: true,
         type: "success",
-        message: validation.data.burnAfterRead ? "留言已发布，查看后会开始 60 秒焚烧倒计时。" : "留言已发布，现在所有访客都可以看到。",
+        message: validation.data.burnAfterRead
+          ? (validation.data.postType === "image" ? "图片已发布，首次查看后会开始 60 秒焚烧倒计时。" : "文字已发布，首次查看后会开始 60 秒焚烧倒计时。")
+          : validation.data.postType === "image"
+            ? "图片已发布，现在所有访客都可以看到。"
+            : "文字已发布，现在所有访客都可以看到。",
         record: nextMessage
       };
     }
@@ -496,20 +670,11 @@
       }
 
       var timestamp = nowProvider();
-      if (!message.burnViewedAt) {
-        message.burnViewedAt = timestamp;
-        message.burnAt = timestamp + getRules().burnCountdownMs;
-        message.auditTrail.push(
-          buildAuditEvent({
-            action: "view",
-            operator: payload.operator || "viewer",
-            note: normalizeText(payload.note) || "Burn countdown started",
-            timestamp: timestamp,
-            fromStatus: "approved",
-            toStatus: "approved"
-          })
-        );
-      }
+      startBurnCountdown(message, {
+        operator: payload.operator || "viewer",
+        note: normalizeText(payload.note) || "Burn countdown started",
+        timestamp: timestamp
+      });
       writeState(state);
       return {
         ok: true,

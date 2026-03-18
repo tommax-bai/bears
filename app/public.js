@@ -4,13 +4,41 @@
   var service = app.createMessageService({ storage: app.createBrowserStorage() });
   var browserStorage = app.createBrowserStorage();
   var NICKNAME_KEY = "codex.mobile.message.board.nickname";
+  var POST_TYPE_COPY = {
+    image: {
+      title: "发布图片帖",
+      introTitle: "图片帖",
+      introBody: "适合直接发相册，默认优先选择图片，支持一次最多 9 张。",
+      contentLabel: "图片说明",
+      placeholder: "给这组图片补一句说明也可以留空。",
+      feedback: "图片帖默认先选图，再决定是否补一句说明。",
+      submit: "发布图片",
+      primaryRule: "图片帖至少选择 1 张图",
+      showEmoji: false
+    },
+    text: {
+      title: "发布文字帖",
+      introTitle: "文字帖",
+      introBody: "只发布纯文字内容，不携带图片，适合短留言或临时想法。",
+      contentLabel: "文字内容",
+      placeholder: "输入要公开发布的文字内容。",
+      feedback: "文字帖只发布纯文字内容，不会附带图片。",
+      submit: "发布文字",
+      primaryRule: "文字帖必须填写内容",
+      showEmoji: true
+    }
+  };
+
   service.seedInitialData();
   document.body.classList.add("gate-active");
 
   var summaryRoot = document.getElementById("publicSummary");
   var listRoot = document.getElementById("publicList");
-  var openComposer = document.getElementById("openComposer");
-  var floatingCompose = document.getElementById("floatingCompose");
+  var publishDock = document.getElementById("publishDock");
+  var publishMenu = document.getElementById("publishMenu");
+  var publishToggle = document.getElementById("publishToggle");
+  var launchImagePost = document.getElementById("launchImagePost");
+  var launchTextPost = document.getElementById("launchTextPost");
   var composerSheet = document.getElementById("composerSheet");
   var sheetBackdrop = document.getElementById("sheetBackdrop");
   var closeComposer = document.getElementById("closeComposer");
@@ -21,13 +49,25 @@
   var displayNameInput = document.getElementById("displayName");
   var messageContentInput = document.getElementById("messageContent");
   var imageUploadInput = document.getElementById("imageUpload");
+  var chooseImagesButton = document.getElementById("chooseImages");
   var imagePreview = document.getElementById("imagePreview");
   var emojiPicker = document.getElementById("emojiPicker");
+  var emojiSection = document.getElementById("emojiSection");
   var burnAfterInput = document.getElementById("burnAfter");
   var burnAfterSwitch = document.getElementById("burnAfterSwitch");
+  var postTypeInput = document.getElementById("postType");
+  var postTypeSwitch = document.getElementById("postTypeSwitch");
+  var composerTitle = document.getElementById("composerTitle");
+  var postModeIntro = document.getElementById("postModeIntro");
+  var contentField = document.getElementById("contentField");
+  var contentLabel = document.getElementById("contentLabel");
+  var imageField = document.getElementById("imageField");
+  var uploadNote = document.getElementById("uploadNote");
+  var rulePrimary = document.getElementById("rulePrimary");
   var entryGate = document.getElementById("entryGate");
   var entryGrid = document.getElementById("entryGrid");
   var entryLogo = document.getElementById("entryLogo");
+  var submitButton = document.getElementById("submitButton");
   var pullState = {
     startY: 0,
     active: false,
@@ -37,6 +77,8 @@
   var idleTimer = null;
   var feedRefreshTimer = null;
   var pendingImages = [];
+  var currentPostType = "text";
+  var publishMenuOpen = false;
 
   function loadSavedNickname() {
     return (browserStorage.getItem(NICKNAME_KEY) || "").trim();
@@ -62,11 +104,21 @@
   }
 
   function renderEntryGrid() {
-    var firstDigit = String(Math.floor(Math.random() * 9) + 1);
-    var secondDigits = shuffle(["1", "2", "3", "4", "5", "6", "7", "8", "9"]);
-    entryGrid.innerHTML = secondDigits
-      .map(function (digit) {
-        return '<button class="entry-tile" type="button" data-code="' + firstDigit + digit + '">' + firstDigit + digit + "</button>";
+    var usedCodes = {};
+    var codes = [];
+
+    while (codes.length < 9) {
+      var code = String(Math.floor(Math.random() * 90) + 10);
+      if (usedCodes[code]) {
+        continue;
+      }
+      usedCodes[code] = true;
+      codes.push(code);
+    }
+
+    entryGrid.innerHTML = shuffle(codes)
+      .map(function (code) {
+        return '<button class="entry-tile" type="button" data-code="' + code + '">' + code + "</button>";
       })
       .join("");
   }
@@ -75,6 +127,7 @@
     entryGate.classList.add("hidden");
     entryGate.setAttribute("aria-hidden", "true");
     document.body.classList.remove("gate-active");
+    refreshFeed();
   }
 
   function openEntryGate() {
@@ -119,17 +172,70 @@
   function renderSummary() {
     var stats = service.getStats();
     summaryRoot.innerHTML =
-      '<p class="summary-inline">公开中 ' +
-      stats.approved +
-      " 条，焚烧 " +
-      stats.ephemeral +
-      " 条，已下线 " +
-      (stats.hidden + stats.burned) +
-      " 条。</p>";
+      '<p class="summary-inline">' +
+      '<span class="summary-item"><span class="summary-label">公开中</span><strong class="summary-value">' + stats.approved + "</strong></span>" +
+      '<span class="summary-separator">/</span>' +
+      '<span class="summary-item"><span class="summary-label">焚烧</span><strong class="summary-value">' + stats.ephemeral + "</strong></span>" +
+      '<span class="summary-separator">/</span>' +
+      '<span class="summary-item"><span class="summary-label">已下线</span><strong class="summary-value">' + (stats.hidden + stats.burned) + "</strong></span>" +
+      "</p>";
+  }
+
+  function formatRelativePublishedTime(value) {
+    var timestamp = Number(value || 0);
+    var diffMs = Math.max(0, Date.now() - timestamp);
+    var seconds = Math.floor(diffMs / 1000);
+
+    if (seconds < 10) {
+      return "刚刚";
+    }
+    if (seconds < 60) {
+      return seconds + " 秒前";
+    }
+
+    var minutes = Math.floor(seconds / 60);
+    if (minutes < 10) {
+      return minutes + " 分钟前";
+    }
+    if (minutes < 30) {
+      return Math.floor(minutes / 10) * 10 + " 分钟前";
+    }
+    if (minutes < 60) {
+      return "30 分钟前";
+    }
+
+    var hours = Math.floor(minutes / 60);
+    if (hours < 6) {
+      return hours + " 小时前";
+    }
+    if (hours < 24) {
+      return Math.floor(hours / 3) * 3 + " 小时前";
+    }
+
+    var days = Math.floor(hours / 24);
+    if (days < 7) {
+      return days + " 天前";
+    }
+
+    var weeks = Math.floor(days / 7);
+    if (weeks < 5) {
+      return weeks + " 周前";
+    }
+
+    var months = Math.floor(days / 30);
+    if (months < 12) {
+      return months + " 个月前";
+    }
+
+    return Math.floor(days / 365) + " 年前";
   }
 
   function renderMessages() {
-    var items = service.listReadableMessages();
+    var items = service.listReadableMessages({
+      autoStartBurn: !document.body.classList.contains("gate-active"),
+      operator: "viewer"
+    });
+
     if (!items.length) {
       listRoot.innerHTML = '<div class="empty-state">暂时没有公开留言，试着提交第一条。</div>';
       return;
@@ -137,34 +243,28 @@
 
     listRoot.innerHTML = items
       .map(function (message) {
-        var action = message.burnAfterRead
-          ? '<button class="chip-button burn-button" data-id="' + message.id + '">' + (message.burnAt ? "焚烧中" : "查看") + "</button>"
-          : "";
         var hint = message.burnAfterRead ? '<span class="status-pill status-hidden">焚烧</span>' : "";
-        var content = message.burnAfterRead
-          ? message.burnAt
-            ? escapeHtml(message.content)
-            : "这是一条焚烧留言，点击下方按钮后会开始 60 秒焚烧倒计时。"
-          : escapeHtml(message.content);
+        var content = escapeHtml(message.content);
+        var contentMarkup = content ? '<p class="message-content">' + content + "</p>" : "";
+        var gallery = renderImageGallery(message.images || []);
         var countdown = message.burnAfterRead && message.burnAt
           ? '<div class="burn-countdown">焚烧倒计时 ' + formatCountdown(message.burnRemainingMs || 0) + " 秒</div>"
           : "";
         return (
           '<article class="message-card">' +
           '<div class="message-meta">' +
-          '<button class="burn-icon-button" data-burn-now="' + message.id + '" aria-label="立即焚烧">🔥</button>' +
           '<strong>' +
           escapeHtml(message.displayName) +
           "</strong>" +
           hint +
           "<span>" +
-          app.formatTimestamp(message.publishedAt || message.createdAt) +
+          formatRelativePublishedTime(message.publishedAt || message.createdAt) +
           "</span>" +
           "</div>" +
-          '<p class="message-content">' + content + "</p>" +
-          renderImageGallery(message.images || []) +
+          contentMarkup +
+          gallery +
           countdown +
-          action +
+          '<button class="burn-icon-button" data-burn-now="' + message.id + '" aria-label="立即焚烧"><span class="pixel-flame" aria-hidden="true"></span></button>' +
           "</article>"
         );
       })
@@ -189,6 +289,19 @@
   function setFeedback(type, text) {
     feedback.className = "feedback " + type;
     feedback.textContent = text;
+  }
+
+  function updateModeFeedback() {
+    setFeedback("neutral", POST_TYPE_COPY[currentPostType].feedback);
+  }
+
+  function setPublishMenuOpen(open) {
+    publishMenuOpen = Boolean(open);
+    publishMenu.classList.toggle("hidden", !publishMenuOpen);
+    publishDock.classList.toggle("is-open", publishMenuOpen);
+    publishMenu.setAttribute("aria-hidden", publishMenuOpen ? "false" : "true");
+    publishToggle.setAttribute("aria-expanded", publishMenuOpen ? "true" : "false");
+    publishToggle.setAttribute("aria-label", publishMenuOpen ? "关闭发布菜单" : "打开发布菜单");
   }
 
   function refreshFeed() {
@@ -230,6 +343,7 @@
   function renderPendingImages() {
     if (!pendingImages.length) {
       imagePreview.innerHTML = "";
+      uploadNote.textContent = "最多上传 9 张图片。";
       return;
     }
     imagePreview.innerHTML = pendingImages
@@ -242,6 +356,7 @@
         );
       })
       .join("");
+    uploadNote.textContent = "已选择 " + pendingImages.length + " / " + service.getRules().maxImageCount + " 张图片。";
   }
 
   function resetImages() {
@@ -253,6 +368,11 @@
   function syncSelectedImages(fileList) {
     var files = Array.prototype.slice.call(fileList || []);
     var maxCount = service.getRules().maxImageCount;
+
+    if (!files.length) {
+      renderPendingImages();
+      return;
+    }
 
     if (files.length + pendingImages.length > maxCount) {
       setFeedback("warning", "最多只能上传 " + maxCount + " 张图片。");
@@ -280,6 +400,7 @@
     )
       .then(function (images) {
         pendingImages = pendingImages.concat(images).slice(0, maxCount);
+        setPostType("image");
         renderPendingImages();
         imageUploadInput.value = "";
       })
@@ -297,14 +418,46 @@
     });
   }
 
-  function showComposer() {
+  function setPostType(nextType) {
+    var type = nextType === "image" ? "image" : "text";
+    var copy = POST_TYPE_COPY[type];
+    currentPostType = type;
+    postTypeInput.value = type;
+    composerTitle.textContent = copy.title;
+    postModeIntro.innerHTML = "<strong>" + copy.introTitle + "</strong><span>" + copy.introBody + "</span>";
+    contentLabel.textContent = copy.contentLabel;
+    messageContentInput.placeholder = copy.placeholder;
+    submitButton.textContent = copy.submit;
+    rulePrimary.textContent = copy.primaryRule;
+    imageField.classList.toggle("hidden", type !== "image");
+    emojiSection.classList.toggle("hidden", !copy.showEmoji);
+    contentField.classList.toggle("text-only", type === "text");
+
+    Array.prototype.slice.call(postTypeSwitch.querySelectorAll(".post-type-option")).forEach(function (button) {
+      var isActive = button.getAttribute("data-post-type") === type;
+      button.classList.toggle("is-active", isActive);
+      button.setAttribute("aria-pressed", isActive ? "true" : "false");
+    });
+
+    updateModeFeedback();
+  }
+
+  function showComposer(nextType, options) {
+    var config = options || {};
     markActivity();
+    setPublishMenuOpen(false);
     composerSheet.classList.remove("hidden");
     composerSheet.setAttribute("aria-hidden", "false");
+    setPostType(nextType || currentPostType);
     displayNameInput.value = loadSavedNickname();
     setTimeout(function () {
+      if (config.openImagePicker && currentPostType === "image") {
+        imageUploadInput.click();
+      }
       if (displayNameInput.value) {
-        messageContentInput.focus();
+        if (currentPostType === "text") {
+          messageContentInput.focus();
+        }
         return;
       }
       displayNameInput.focus();
@@ -317,11 +470,11 @@
   }
 
   function resetForm() {
-    displayNameInput.value = loadSavedNickname();
     messageForm.reset();
     displayNameInput.value = loadSavedNickname();
+    setBurnAfterMode("never");
     resetImages();
-    setFeedback("neutral", "普通留言会立即公开，焚烧留言会在首次查看后自动消失。");
+    setPostType(currentPostType);
   }
 
   function escapeHtml(value) {
@@ -336,9 +489,11 @@
   messageForm.addEventListener("submit", function (event) {
     event.preventDefault();
     markActivity();
+
     var result = service.submitMessage({
       displayName: displayNameInput.value,
       content: messageContentInput.value,
+      postType: postTypeInput.value,
       images: pendingImages,
       sourceId: sourceId,
       burnAfter: burnAfterInput.value
@@ -359,19 +514,42 @@
     renderMessages();
     messageForm.reset();
     displayNameInput.value = loadSavedNickname();
+    setBurnAfterMode("never");
     resetImages();
+    setPostType(postTypeInput.value || currentPostType);
+    hideComposer();
   });
 
-  [openComposer, floatingCompose].forEach(function (button) {
-    if (!button) {
-      return;
-    }
-    button.addEventListener("click", showComposer);
+  launchImagePost.addEventListener("click", function () {
+    showComposer("image", { openImagePicker: true });
+  });
+
+  launchTextPost.addEventListener("click", function () {
+    showComposer("text");
+  });
+
+  publishToggle.addEventListener("click", function () {
+    markActivity();
+    setPublishMenuOpen(!publishMenuOpen);
   });
 
   closeComposer.addEventListener("click", hideComposer);
   sheetBackdrop.addEventListener("click", hideComposer);
   resetComposer.addEventListener("click", resetForm);
+
+  chooseImagesButton.addEventListener("click", function () {
+    markActivity();
+    imageUploadInput.click();
+  });
+
+  postTypeSwitch.addEventListener("click", function (event) {
+    var target = event.target;
+    if (!target.classList.contains("post-type-option")) {
+      return;
+    }
+    markActivity();
+    setPostType(target.getAttribute("data-post-type"));
+  });
 
   burnAfterSwitch.addEventListener("click", function (event) {
     var target = event.target;
@@ -420,6 +598,16 @@
 
   entryLogo.addEventListener("click", function () {
     enterFromTrigger(entryLogo);
+  });
+
+  document.addEventListener("click", function (event) {
+    if (!publishMenuOpen) {
+      return;
+    }
+    if (publishDock.contains(event.target)) {
+      return;
+    }
+    setPublishMenuOpen(false);
   });
 
   window.addEventListener(
@@ -484,15 +672,18 @@
 
   displayNameInput.value = loadSavedNickname();
   setBurnAfterMode(burnAfterInput.value || "never");
+  setPostType("text");
+  setPublishMenuOpen(false);
   renderEntryGrid();
   renderPendingImages();
 
   listRoot.addEventListener("click", function (event) {
     var target = event.target;
-    if (target.classList.contains("burn-icon-button")) {
+    var burnNowButton = target.closest(".burn-icon-button");
+    if (burnNowButton) {
       markActivity();
       var burnNowResult = service.burnMessageNow({
-        id: target.getAttribute("data-burn-now"),
+        id: burnNowButton.getAttribute("data-burn-now"),
         operator: "viewer"
       });
       if (burnNowResult.ok) {
@@ -503,13 +694,14 @@
       setFeedback("warning", burnNowResult.message);
       return;
     }
-    if (!target.classList.contains("burn-button")) {
+    var burnViewButton = target.closest(".burn-button");
+    if (!burnViewButton) {
       return;
     }
     markActivity();
 
     var result = service.viewBurnMessage({
-      id: target.getAttribute("data-id"),
+      id: burnViewButton.getAttribute("data-id"),
       operator: "viewer"
     });
     if (result.ok) {

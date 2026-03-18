@@ -23,16 +23,37 @@ function createService() {
   return service;
 }
 
+function createServiceWithState(state) {
+  return createMessageService({
+    storage: createMemoryStorage({
+      "codex.mobile.message.board.state": JSON.stringify(state)
+    }),
+    now
+  });
+}
+
 function run() {
   const service = createService();
 
-  assert.strictEqual(service.listApprovedMessages().length, 3, "seed should expose three approved messages");
-  assert.strictEqual(service.getStats().approved, 3, "seed should include three approved messages");
+  assert.strictEqual(service.listApprovedMessages().length, 5, "seed should expose five approved messages");
+  assert.strictEqual(service.getStats().approved, 5, "seed should include five approved messages");
   assert.strictEqual(service.getStats().ephemeral, 1, "seed should include one burn-after-read message");
 
   const valid = service.submitMessage({
     displayName: "测试访客",
     content: "这个留言板在手机上录入很顺手。",
+    postType: "text",
+    sourceId: "tester"
+  });
+  assert.strictEqual(valid.ok, true, "valid submission should succeed");
+  assert.strictEqual(valid.record.status, "approved", "new submission should publish immediately");
+  assert.strictEqual(valid.record.postType, "text", "text submission should persist post type");
+  assert.strictEqual(valid.record.images.length, 0, "text submission should not store images");
+
+  const imagePost = service.submitMessage({
+    displayName: "图片访客",
+    content: "发一组现场图。",
+    postType: "image",
     images: [
       {
         name: "demo.png",
@@ -40,11 +61,48 @@ function run() {
         dataUrl: "data:image/png;base64,AAAA"
       }
     ],
-    sourceId: "tester"
+    sourceId: "image-tester"
   });
-  assert.strictEqual(valid.ok, true, "valid submission should succeed");
-  assert.strictEqual(valid.record.status, "approved", "new submission should publish immediately");
-  assert.strictEqual(valid.record.images.length, 1, "uploaded images should persist with the message");
+  assert.strictEqual(imagePost.ok, true, "image submission should succeed");
+  assert.strictEqual(imagePost.record.postType, "image", "image submission should persist post type");
+  assert.strictEqual(imagePost.record.images.length, 1, "uploaded images should persist with the message");
+
+  const invalidTextWithImage = service.submitMessage({
+    displayName: "混发用户",
+    content: "这条不应该通过。",
+    postType: "text",
+    images: [
+      {
+        name: "mix.png",
+        type: "image/png",
+        dataUrl: "data:image/png;base64,AAAA"
+      }
+    ],
+    sourceId: "mix-client"
+  });
+  assert.strictEqual(invalidTextWithImage.ok, false, "text mode should reject images");
+  assert.strictEqual(invalidTextWithImage.type, "validation", "mixed text/image should be a validation error");
+
+  const invalidImageWithoutFile = service.submitMessage({
+    displayName: "空图片用户",
+    content: "",
+    postType: "image",
+    images: [],
+    sourceId: "empty-image-client"
+  });
+  assert.strictEqual(invalidImageWithoutFile.ok, false, "image mode should require at least one image");
+
+  const imageLimit = service.submitMessage({
+    displayName: "九宫格访客",
+    postType: "image",
+    images: new Array(9).fill(null).map((_, index) => ({
+      name: "img-" + index + ".png",
+      type: "image/png",
+      dataUrl: "data:image/png;base64,AAAA"
+    })),
+    sourceId: "gallery-client"
+  });
+  assert.strictEqual(imageLimit.ok, true, "image mode should accept up to nine images");
 
   const blocked = service.submitMessage({
     displayName: "广告账号",
@@ -76,22 +134,56 @@ function run() {
   const burnCandidate = service.submitMessage({
     displayName: "闪现用户",
     content: "这是一条会在查看后焚毁的留言。",
+    postType: "text",
     sourceId: "burn-client",
     burnAfter: "after_read"
   });
   assert.strictEqual(burnCandidate.ok, true, "burn-after-read submission should succeed");
   assert.strictEqual(burnCandidate.record.burnAfterRead, true, "record should persist burn-after-read mode");
 
-  const viewed = service.viewBurnMessage({
-    id: burnCandidate.record.id,
+  const autoStartedReadable = service.listReadableMessages({
+    autoStartBurn: true,
     operator: "viewer"
   });
-  assert.strictEqual(viewed.ok, true, "burn-after-read message should start countdown after viewing");
-  assert.ok(viewed.record.burnAt > viewed.record.burnViewedAt, "viewing should create a burn deadline");
+  const autoStartedBurnMessage = autoStartedReadable.find((message) => message.id === burnCandidate.record.id);
+  assert.ok(autoStartedBurnMessage, "burn-after-read message should remain readable after public render");
+  assert.ok(autoStartedBurnMessage.burnAt > autoStartedBurnMessage.burnViewedAt, "public render should create a burn deadline");
   assert.strictEqual(service.getMessageById(burnCandidate.record.id).status, "approved", "message should remain visible during countdown");
 
   advanceMinutes(2);
   assert.strictEqual(service.getMessageById(burnCandidate.record.id).status, "burned", "burned message should leave public view after countdown");
+
+  currentTime = Date.UTC(2026, 2, 17, 9, 3, 0);
+  const repairedBurnService = createServiceWithState({
+    messages: [
+      {
+        id: "msg-broken-burn",
+        displayName: "旧版焚烧留言",
+        content: "缺少 burnAt 的旧数据",
+        postType: "text",
+        status: "approved",
+        createdAt: currentTime - 2 * 60 * 1000,
+        publishedAt: currentTime - 2 * 60 * 1000,
+        images: [],
+        burnAfterRead: true,
+        burnViewedAt: currentTime - 30 * 1000,
+        burnAt: null,
+        burnedAt: null,
+        sourceId: "legacy",
+        auditTrail: []
+      }
+    ],
+    meta: {
+      createdAt: currentTime - 2 * 60 * 1000,
+      updatedAt: currentTime - 30 * 1000
+    },
+    rules: {}
+  });
+  const repairedReadable = repairedBurnService.listReadableMessages();
+  assert.strictEqual(repairedReadable.length, 1, "legacy burn message should still be readable during repaired countdown");
+  assert.ok(repairedReadable[0].burnRemainingMs <= 30 * 1000, "legacy burn message should recover its countdown");
+  advanceMinutes(1);
+  assert.strictEqual(repairedBurnService.getMessageById("msg-broken-burn").status, "burned", "legacy burn message should expire after recovered countdown");
 
   const pendingId = valid.record.id;
   const hide = service.updateMessageStatus({
