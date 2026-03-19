@@ -141,11 +141,9 @@ function run() {
   assert.strictEqual(burnCandidate.ok, true, "burn-after-read submission should succeed");
   assert.strictEqual(burnCandidate.record.burnAfterRead, true, "record should persist burn-after-read mode");
 
-  const autoStartedReadable = service.listReadableMessages({
-    autoStartBurn: true,
+  const autoStartedBurnMessage = service.ensureBurnCountdownStarted(burnCandidate.record.id, {
     operator: "viewer"
   });
-  const autoStartedBurnMessage = autoStartedReadable.find((message) => message.id === burnCandidate.record.id);
   assert.ok(autoStartedBurnMessage, "burn-after-read message should remain readable after public render");
   assert.ok(autoStartedBurnMessage.burnAt > autoStartedBurnMessage.burnViewedAt, "public render should create a burn deadline");
   assert.strictEqual(service.getMessageById(burnCandidate.record.id).status, "approved", "message should remain visible during countdown");

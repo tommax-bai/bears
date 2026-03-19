@@ -469,27 +469,59 @@
       return sortByPublished(messages);
     }
 
-    function listReadableMessages(options) {
+    function autoStartBurns(options) {
       var settings = options || {};
       var state = readState();
       var changed = false;
 
-      if (settings.autoStartBurn) {
-        state.messages.forEach(function (message) {
-          if (message.status !== "approved" || !message.burnAfterRead || (message.burnViewedAt && message.burnAt)) {
-            return;
-          }
-          startBurnCountdown(message, {
-            operator: settings.operator || "viewer",
-            note: settings.note || "Burn countdown started on public render"
-          });
-          changed = true;
-        });
-        if (changed) {
-          writeState(state);
+      state.messages.forEach(function (message) {
+        if (message.status !== "approved" || !message.burnAfterRead || (message.burnViewedAt && message.burnAt)) {
+          return;
         }
+        startBurnCountdown(message, {
+          operator: settings.operator || "viewer",
+          note: settings.note || "Burn countdown started on public render"
+        });
+        changed = true;
+      });
+
+      if (changed) {
+        writeState(state);
+      }
+    }
+
+    function ensureBurnCountdownStarted(id, options) {
+      var settings = options || {};
+      var state = readState();
+      var message = state.messages.find(function (item) {
+        return item.id === id;
+      });
+
+      if (!message) {
+        return null;
+      }
+      if (message.status !== "approved" || !message.burnAfterRead) {
+        return Object.assign({}, message);
+      }
+      if (!message.burnAt) {
+        startBurnCountdown(message, {
+          operator: settings.operator || "viewer",
+          note: settings.note || "Burn countdown started on public render"
+        });
+        writeState(state);
       }
 
+      return Object.assign({}, message, {
+        burnRemainingMs: message.burnAt ? Math.max(0, message.burnAt - nowProvider()) : null
+      });
+    }
+
+    function listReadableMessages(options) {
+      var settings = options || {};
+      if (settings.autoStartBurn) {
+        autoStartBurns(settings);
+      }
+      var state = readState();
       return sortByPublished(
         state.messages.filter(function (message) {
           return message.status === "approved";
@@ -830,6 +862,8 @@
       getRules: getRules,
       getStats: getStats,
       listApprovedMessages: listApprovedMessages,
+      autoStartBurns: autoStartBurns,
+      ensureBurnCountdownStarted: ensureBurnCountdownStarted,
       listReadableMessages: listReadableMessages,
       listMessages: listMessages,
       getMessageById: getMessageById,

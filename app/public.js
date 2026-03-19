@@ -12,7 +12,7 @@
       contentLabel: "图片说明",
       placeholder: "给这组图片补一句说明也可以留空。",
       feedback: "图片帖默认先选图，再决定是否补一句说明。",
-      submit: "发布图片",
+      submit: "发布",
       primaryRule: "图片帖至少选择 1 张图",
       showEmoji: false
     },
@@ -23,7 +23,7 @@
       contentLabel: "文字内容",
       placeholder: "输入要公开发布的文字内容。",
       feedback: "文字帖只发布纯文字内容，不会附带图片。",
-      submit: "发布文字",
+      submit: "发布",
       primaryRule: "文字帖必须填写内容",
       showEmoji: true
     }
@@ -35,18 +35,23 @@
   var summaryRoot = document.getElementById("publicSummary");
   var listRoot = document.getElementById("publicList");
   var publishDock = document.getElementById("publishDock");
-  var publishMenu = document.getElementById("publishMenu");
   var publishToggle = document.getElementById("publishToggle");
-  var launchImagePost = document.getElementById("launchImagePost");
-  var launchTextPost = document.getElementById("launchTextPost");
+  var openSettings = document.getElementById("openSettings");
+  var settingsPrompt = document.getElementById("settingsPrompt");
+  var promptFillNickname = document.getElementById("promptFillNickname");
   var composerSheet = document.getElementById("composerSheet");
   var sheetBackdrop = document.getElementById("sheetBackdrop");
   var closeComposer = document.getElementById("closeComposer");
   var resetComposer = document.getElementById("resetComposer");
+  var settingsSheet = document.getElementById("settingsSheet");
+  var settingsBackdrop = document.getElementById("settingsBackdrop");
+  var closeSettings = document.getElementById("closeSettings");
+  var settingsForm = document.getElementById("settingsForm");
+  var settingsNickname = document.getElementById("settingsNickname");
+  var settingsFeedback = document.getElementById("settingsFeedback");
   var pullHint = document.getElementById("pullHint");
   var messageForm = document.getElementById("messageForm");
   var feedback = document.getElementById("submitFeedback");
-  var displayNameInput = document.getElementById("displayName");
   var messageContentInput = document.getElementById("messageContent");
   var imageUploadInput = document.getElementById("imageUpload");
   var chooseImagesButton = document.getElementById("chooseImages");
@@ -74,11 +79,13 @@
     ready: false
   };
   var IDLE_TIMEOUT_MS = 60 * 1000;
+  var PUBLISH_LONG_PRESS_MS = 420;
   var idleTimer = null;
   var feedRefreshTimer = null;
   var pendingImages = [];
   var currentPostType = "text";
-  var publishMenuOpen = false;
+  var publishPressTimer = null;
+  var publishLongPressTriggered = false;
 
   function loadSavedNickname() {
     return (browserStorage.getItem(NICKNAME_KEY) || "").trim();
@@ -231,10 +238,18 @@
   }
 
   function renderMessages() {
-    var items = service.listReadableMessages({
-      autoStartBurn: !document.body.classList.contains("gate-active"),
-      operator: "viewer"
-    });
+    var items = service.listReadableMessages();
+
+    if (!document.body.classList.contains("gate-active")) {
+      items = items.map(function (message) {
+        if (!message.burnAfterRead) {
+          return message;
+        }
+        return service.ensureBurnCountdownStarted(message.id, {
+          operator: "viewer"
+        }) || message;
+      });
+    }
 
     if (!items.length) {
       listRoot.innerHTML = '<div class="empty-state">暂时没有公开留言，试着提交第一条。</div>';
@@ -243,20 +258,18 @@
 
     listRoot.innerHTML = items
       .map(function (message) {
-        var hint = message.burnAfterRead ? '<span class="status-pill status-hidden">焚烧</span>' : "";
         var content = escapeHtml(message.content);
         var contentMarkup = content ? '<p class="message-content">' + content + "</p>" : "";
         var gallery = renderImageGallery(message.images || []);
         var countdown = message.burnAfterRead && message.burnAt
-          ? '<div class="burn-countdown">焚烧倒计时 ' + formatCountdown(message.burnRemainingMs || 0) + " 秒</div>"
+          ? '<div class="burn-countdown" data-countdown-for="' + message.id + '">焚烧倒计时 ' + formatCountdown(message.burnRemainingMs || 0) + " 秒</div>"
           : "";
         return (
-          '<article class="message-card">' +
+          '<article class="message-card" data-message-id="' + message.id + '">' +
           '<div class="message-meta">' +
           '<strong>' +
           escapeHtml(message.displayName) +
           "</strong>" +
-          hint +
           "<span>" +
           formatRelativePublishedTime(message.publishedAt || message.createdAt) +
           "</span>" +
@@ -291,22 +304,41 @@
     feedback.textContent = text;
   }
 
-  function updateModeFeedback() {
-    setFeedback("neutral", POST_TYPE_COPY[currentPostType].feedback);
+  function setSettingsFeedback(type, text) {
+    settingsFeedback.className = "feedback " + type;
+    settingsFeedback.textContent = text;
   }
 
-  function setPublishMenuOpen(open) {
-    publishMenuOpen = Boolean(open);
-    publishMenu.classList.toggle("hidden", !publishMenuOpen);
-    publishDock.classList.toggle("is-open", publishMenuOpen);
-    publishMenu.setAttribute("aria-hidden", publishMenuOpen ? "false" : "true");
-    publishToggle.setAttribute("aria-expanded", publishMenuOpen ? "true" : "false");
-    publishToggle.setAttribute("aria-label", publishMenuOpen ? "关闭发布菜单" : "打开发布菜单");
+  function updateModeFeedback() {
+    setFeedback("neutral", POST_TYPE_COPY[currentPostType].feedback);
   }
 
   function refreshFeed() {
     renderSummary();
     renderMessages();
+  }
+
+  function syncBurnCountdowns() {
+    var items = service.listReadableMessages();
+    var currentIds = items.map(function (message) {
+      return message.id;
+    });
+    var renderedIds = Array.prototype.slice.call(listRoot.querySelectorAll("[data-message-id]")).map(function (node) {
+      return node.getAttribute("data-message-id");
+    });
+
+    if (currentIds.join("|") !== renderedIds.join("|")) {
+      refreshFeed();
+      return;
+    }
+
+    items.forEach(function (message) {
+      var countdownNode = listRoot.querySelector('[data-countdown-for="' + message.id + '"]');
+      if (!countdownNode || !message.burnAt) {
+        return;
+      }
+      countdownNode.textContent = "焚烧倒计时 " + formatCountdown(message.burnRemainingMs || 0) + " 秒";
+    });
   }
 
   function formatCountdown(ms) {
@@ -326,7 +358,7 @@
       if (document.body.classList.contains("gate-active")) {
         return;
       }
-      refreshFeed();
+      syncBurnCountdowns();
     }, 1000);
   }
 
@@ -430,7 +462,7 @@
     submitButton.textContent = copy.submit;
     rulePrimary.textContent = copy.primaryRule;
     imageField.classList.toggle("hidden", type !== "image");
-    emojiSection.classList.toggle("hidden", !copy.showEmoji);
+    emojiSection.classList.add("hidden");
     contentField.classList.toggle("text-only", type === "text");
 
     Array.prototype.slice.call(postTypeSwitch.querySelectorAll(".post-type-option")).forEach(function (button) {
@@ -445,22 +477,14 @@
   function showComposer(nextType, options) {
     var config = options || {};
     markActivity();
-    setPublishMenuOpen(false);
     composerSheet.classList.remove("hidden");
     composerSheet.setAttribute("aria-hidden", "false");
     setPostType(nextType || currentPostType);
-    displayNameInput.value = loadSavedNickname();
     setTimeout(function () {
       if (config.openImagePicker && currentPostType === "image") {
         imageUploadInput.click();
       }
-      if (displayNameInput.value) {
-        if (currentPostType === "text") {
-          messageContentInput.focus();
-        }
-        return;
-      }
-      displayNameInput.focus();
+      messageContentInput.focus();
     }, 30);
   }
 
@@ -469,10 +493,67 @@
     composerSheet.setAttribute("aria-hidden", "true");
   }
 
+  function showSettings() {
+    markActivity();
+    hideSettingsPrompt();
+    settingsNickname.value = loadSavedNickname();
+    settingsSheet.classList.remove("hidden");
+    settingsSheet.setAttribute("aria-hidden", "false");
+    setSettingsFeedback("neutral", "设置后，发布内容会默认使用这个昵称。");
+    setTimeout(function () {
+      settingsNickname.focus();
+    }, 30);
+  }
+
+  function hideSettings() {
+    settingsSheet.classList.add("hidden");
+    settingsSheet.setAttribute("aria-hidden", "true");
+  }
+
+  function showSettingsPrompt() {
+    settingsPrompt.classList.remove("hidden");
+    settingsPrompt.setAttribute("aria-hidden", "false");
+  }
+
+  function hideSettingsPrompt() {
+    settingsPrompt.classList.add("hidden");
+    settingsPrompt.setAttribute("aria-hidden", "true");
+  }
+
+  function clearPublishPressTimer() {
+    if (!publishPressTimer) {
+      return;
+    }
+    clearTimeout(publishPressTimer);
+    publishPressTimer = null;
+  }
+
+  function triggerTextComposer() {
+    showComposer("text");
+  }
+
+  function triggerImageComposer() {
+    showComposer("image", { openImagePicker: true });
+  }
+
+  function beginPublishPress() {
+    clearPublishPressTimer();
+    publishLongPressTriggered = false;
+    publishToggle.classList.add("is-pressed");
+    publishPressTimer = setTimeout(function () {
+      publishLongPressTriggered = true;
+      triggerImageComposer();
+    }, PUBLISH_LONG_PRESS_MS);
+  }
+
+  function endPublishPress() {
+    clearPublishPressTimer();
+    publishToggle.classList.remove("is-pressed");
+  }
+
   function resetForm() {
     messageForm.reset();
-    displayNameInput.value = loadSavedNickname();
-    setBurnAfterMode("never");
+    setBurnAfterMode("after_read");
     resetImages();
     setPostType(currentPostType);
   }
@@ -489,9 +570,17 @@
   messageForm.addEventListener("submit", function (event) {
     event.preventDefault();
     markActivity();
+    var savedNickname = loadSavedNickname();
+
+    if (!savedNickname) {
+      setFeedback("warning", "请先在右上角设置昵称。");
+      hideComposer();
+      showSettingsPrompt();
+      return;
+    }
 
     var result = service.submitMessage({
-      displayName: displayNameInput.value,
+      displayName: savedNickname,
       content: messageContentInput.value,
       postType: postTypeInput.value,
       images: pendingImages,
@@ -508,34 +597,74 @@
       return;
     }
 
-    saveNickname(displayNameInput.value);
     setFeedback("success", result.message);
     renderSummary();
     renderMessages();
     messageForm.reset();
-    displayNameInput.value = loadSavedNickname();
-    setBurnAfterMode("never");
+    setBurnAfterMode("after_read");
     resetImages();
     setPostType(postTypeInput.value || currentPostType);
     hideComposer();
   });
 
-  launchImagePost.addEventListener("click", function () {
-    showComposer("image", { openImagePicker: true });
-  });
-
-  launchTextPost.addEventListener("click", function () {
-    showComposer("text");
-  });
-
-  publishToggle.addEventListener("click", function () {
+  publishToggle.addEventListener("pointerdown", function (event) {
+    if (event.button !== 0) {
+      return;
+    }
     markActivity();
-    setPublishMenuOpen(!publishMenuOpen);
+    beginPublishPress();
+  });
+
+  publishToggle.addEventListener("pointerup", function () {
+    var longPressTriggered = publishLongPressTriggered;
+    endPublishPress();
+    if (!longPressTriggered) {
+      triggerTextComposer();
+    }
+  });
+
+  publishToggle.addEventListener("pointerleave", function () {
+    endPublishPress();
+  });
+
+  publishToggle.addEventListener("pointercancel", function () {
+    endPublishPress();
+  });
+
+  publishToggle.addEventListener("contextmenu", function (event) {
+    event.preventDefault();
   });
 
   closeComposer.addEventListener("click", hideComposer);
   sheetBackdrop.addEventListener("click", hideComposer);
   resetComposer.addEventListener("click", resetForm);
+  openSettings.addEventListener("click", showSettings);
+  promptFillNickname.addEventListener("click", showSettings);
+  closeSettings.addEventListener("click", hideSettings);
+  settingsBackdrop.addEventListener("click", hideSettings);
+  settingsForm.addEventListener("submit", function (event) {
+    event.preventDefault();
+    var nickname = settingsNickname.value.trim();
+    if (!nickname) {
+      setSettingsFeedback("warning", "昵称不能为空。");
+      return;
+    }
+    saveNickname(nickname);
+    setSettingsFeedback("success", "昵称已保存。");
+    setTimeout(function () {
+      hideSettings();
+    }, 180);
+  });
+
+  document.addEventListener("click", function (event) {
+    if (settingsPrompt.classList.contains("hidden")) {
+      return;
+    }
+    if (event.target.closest(".settings-anchor")) {
+      return;
+    }
+    hideSettingsPrompt();
+  });
 
   chooseImagesButton.addEventListener("click", function () {
     markActivity();
@@ -569,6 +698,22 @@
     insertEmoji(target.getAttribute("data-emoji") || "");
   });
 
+  messageContentInput.addEventListener("focus", function () {
+    if (currentPostType !== "text") {
+      return;
+    }
+    emojiSection.classList.remove("hidden");
+  });
+
+  messageContentInput.addEventListener("blur", function () {
+    setTimeout(function () {
+      if (document.activeElement && document.activeElement.closest && document.activeElement.closest("#emojiSection")) {
+        return;
+      }
+      emojiSection.classList.add("hidden");
+    }, 80);
+  });
+
   imageUploadInput.addEventListener("change", function (event) {
     markActivity();
     syncSelectedImages(event.target.files);
@@ -598,16 +743,6 @@
 
   entryLogo.addEventListener("click", function () {
     enterFromTrigger(entryLogo);
-  });
-
-  document.addEventListener("click", function (event) {
-    if (!publishMenuOpen) {
-      return;
-    }
-    if (publishDock.contains(event.target)) {
-      return;
-    }
-    setPublishMenuOpen(false);
   });
 
   window.addEventListener(
@@ -670,10 +805,8 @@
     );
   });
 
-  displayNameInput.value = loadSavedNickname();
-  setBurnAfterMode(burnAfterInput.value || "never");
+  setBurnAfterMode(burnAfterInput.value || "after_read");
   setPostType("text");
-  setPublishMenuOpen(false);
   renderEntryGrid();
   renderPendingImages();
 
@@ -694,22 +827,6 @@
       setFeedback("warning", burnNowResult.message);
       return;
     }
-    var burnViewButton = target.closest(".burn-button");
-    if (!burnViewButton) {
-      return;
-    }
-    markActivity();
-
-    var result = service.viewBurnMessage({
-      id: burnViewButton.getAttribute("data-id"),
-      operator: "viewer"
-    });
-    if (result.ok) {
-      setFeedback("success", "该焚烧留言已开始倒计时。");
-      refreshFeed();
-      return;
-    }
-    setFeedback("warning", result.message);
   });
 
   ensureFeedRefreshTimer();

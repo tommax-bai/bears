@@ -38,6 +38,13 @@
             <p class="eyebrow">Live Feed</p>
             <h2>Bear's Home</h2>
           </div>
+          <div class="settings-anchor">
+            <button id="openSettings" class="settings-button" type="button" aria-label="打开昵称设置">设置</button>
+            <div id="settingsPrompt" class="settings-prompt hidden" aria-hidden="true">
+              <p>发布前请先填写昵称</p>
+              <button id="promptFillNickname" type="button" class="text-button">去填写</button>
+            </div>
+          </div>
         </div>
         <div id="pullHint" class="pull-hint">下拉刷新</div>
         <div id="publicList" class="message-stream"></div>
@@ -47,17 +54,11 @@
     </main>
 
     <div id="publishDock" class="publish-dock" aria-label="发布入口">
-      <div id="publishMenu" class="publish-menu hidden" aria-hidden="true">
-        <button id="launchImagePost" class="publish-action primary-publish" aria-label="发图片">发图片</button>
-        <button id="launchTextPost" class="publish-action secondary-publish" aria-label="发文字">发文字</button>
-      </div>
       <button
         id="publishToggle"
         class="publish-toggle"
         type="button"
-        aria-label="打开发布菜单"
-        aria-expanded="false"
-        aria-controls="publishMenu"
+        aria-label="点击发文字，长按发图片"
       >
         +
       </button>
@@ -87,11 +88,6 @@
             <span>适合一口气发 1 到 9 张图，可附一句简短说明。</span>
           </div>
 
-          <label>
-            昵称
-            <input id="displayName" name="displayName" type="text" maxlength="24" placeholder="例如：周末访客" />
-          </label>
-
           <label id="contentField">
             <span id="contentLabel">图片说明</span>
             <textarea
@@ -113,7 +109,7 @@
             <div id="imagePreview" class="image-preview"></div>
           </div>
 
-          <div id="emojiSection" class="emoji-picker" aria-label="可选表情">
+          <div id="emojiSection" class="emoji-picker hidden" aria-label="可选表情">
             <span class="emoji-label">可选表情</span>
             <div id="emojiPicker" class="emoji-list">
               <button type="button" class="emoji-option" data-emoji="😀">😀</button>
@@ -129,10 +125,10 @@
 
           <label>
             可见模式
-            <input id="burnAfter" name="burnAfter" type="hidden" value="never" />
+            <input id="burnAfter" name="burnAfter" type="hidden" value="after_read" />
             <div id="burnAfterSwitch" class="mode-switch" role="tablist" aria-label="可见模式">
-              <button type="button" class="mode-option is-active" data-value="never" aria-pressed="true">长期可见</button>
-              <button type="button" class="mode-option" data-value="after_read" aria-pressed="false">焚烧</button>
+              <button type="button" class="mode-option" data-value="never" aria-pressed="false">长期可见</button>
+              <button type="button" class="mode-option is-active" data-value="after_read" aria-pressed="true">焚烧</button>
             </div>
           </label>
 
@@ -144,9 +140,33 @@
 
           <div id="submitFeedback" class="feedback neutral">请选择发布方式。图片帖适合发相册，文字帖只发布纯文字内容。</div>
 
-          <div class="form-actions">
-            <button id="submitButton" type="submit" class="primary-button">发布图片</button>
+          <div class="form-actions composer-actions">
+            <button id="submitButton" type="submit" class="primary-button">发布</button>
             <button type="button" id="resetComposer" class="secondary-button">重置</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div id="settingsSheet" class="sheet hidden" aria-hidden="true">
+      <div id="settingsBackdrop" class="sheet-backdrop"></div>
+      <div class="sheet-panel settings-panel">
+        <div class="sheet-head">
+          <div>
+            <p class="eyebrow">Profile</p>
+            <h2>昵称设置</h2>
+          </div>
+          <button id="closeSettings" class="icon-button" aria-label="关闭设置">×</button>
+        </div>
+
+        <form id="settingsForm" class="composer-form">
+          <label>
+            昵称
+            <input id="settingsNickname" name="settingsNickname" type="text" maxlength="24" placeholder="例如：周末访客" />
+          </label>
+          <div id="settingsFeedback" class="feedback neutral">设置后，发布内容会默认使用这个昵称。</div>
+          <div class="form-actions">
+            <button type="submit" class="primary-button">保存昵称</button>
           </div>
         </form>
       </div>
